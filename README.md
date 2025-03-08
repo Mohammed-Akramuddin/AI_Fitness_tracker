@@ -61,29 +61,37 @@ To get started, clone this repository using the following command:
 ```bash
 git clone https://github.com/your-username/AI-Fitness-Tracker.git
 cd AI-Fitness-Tracker
+```
+### 2️⃣ Create a Virtual Environment and Activate It
+```bash
+# For Linux/Mac
 python3 -m venv venv
 source venv/bin/activate
+
+# For Windows
 python -m venv venv
 venv\Scripts\activate
-pip install -r requirements.txt
-python app2.py
-http://localhost:5000/
 ```
-🏋️‍♂️ How It Works
-Facial Emotion Detection:
-
-Uses a pre-trained CNN model to analyze real-time facial expressions.
-MediaPipe processes face landmarks for better accuracy.
-Voice Emotion Recognition:
-
-Uses Librosa to extract voice features.
-CNN model classifies voice into emotional categories.
-Workout Recommendation System:
-
-Based on detected emotions, the app suggests workouts dynamically.
-Example: If the user feels stressed, it may recommend meditation or yoga.
-If the user is excited, it may suggest high-intensity exercises.
-🛠 Future Enhancements
+### 3️⃣ Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+### 4️⃣ Run the Flask App
+```bash
+python app2.py
+```
+### 🏋️‍♂️ How It Works
+1.Facial Emotion Detection:
+  • Uses a pre-trained CNN model to analyze real-time facial expressions.
+  • MediaPipe processes face landmarks for better accuracy.
+2.Voice Emotion Recognition:
+  • Uses Librosa to extract voice features.
+  • CNN model classifies voice into emotional categories.
+3.Workout Recommendation System:
+  • Based on detected emotions, the app suggests workouts dynamically.
+  • Example: If the user feels stressed, it may recommend meditation or yoga.
+  • If the user is excited, it may suggest high-intensity exercises.
+### 🛠 Future Enhancements
 🔹 Mobile App Integration for a seamless experience.
 🔹 More Emotion Categories for deeper analysis.
 🔹 Support for Wearable Devices (e.g., Fitbit, Apple Watch).
