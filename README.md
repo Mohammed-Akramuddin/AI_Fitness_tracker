@@ -81,18 +81,25 @@ pip install -r requirements.txt
 python app2.py
 ```
 ### 🏋️‍♂️ How It Works
--1.Facial Emotion Detection:
-  -• Uses a pre-trained CNN model to analyze real-time facial expressions.
-  -• MediaPipe processes face landmarks for better accuracy.
--2.Voice Emotion Recognition:
-  -• Uses Librosa to extract voice features.
-  -• CNN model classifies voice into emotional categories.
--3.Workout Recommendation System:
-  -• Based on detected emotions, the app suggests workouts dynamically.
-  -• Example: If the user feels stressed, it may recommend meditation or yoga.
-  -• If the user is excited, it may suggest high-intensity exercises.
+
+#### 1️⃣ Facial Emotion Detection:
+- **Uses a pre-trained CNN model** to analyze real-time facial expressions.
+- **MediaPipe processes face landmarks** for better accuracy.
+
+#### 2️⃣ Voice Emotion Recognition:
+- **Uses Librosa** to extract voice features.
+- **CNN model classifies voice into emotional categories.**
+
+#### 3️⃣ Workout Recommendation System:
+- **Based on detected emotions, the app suggests workouts dynamically.**
+- **Example:**
+  - If the user feels **stressed**, it may recommend **meditation or yoga**.
+  - If the user is **excited**, it may suggest **high-intensity exercises**.
+
 ### 🛠 Future Enhancements
-🔹 Mobile App Integration for a seamless experience.
-🔹 More Emotion Categories for deeper analysis.
-🔹 Support for Wearable Devices (e.g., Fitbit, Apple Watch).
-🔹 User Authentication to track progress over time.
+
+- 🔹 **Mobile App Integration** for a seamless experience.
+- 🔹 **More Emotion Categories** for deeper analysis.
+- 🔹 **Support for Wearable Devices** (e.g., Fitbit, Apple Watch).
+- 🔹 **User Authentication** to track progress over time.
+
