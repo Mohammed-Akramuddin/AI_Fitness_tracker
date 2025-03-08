@@ -44,4 +44,17 @@ For facial emotion recognition, we use the **FER 2013** dataset, which contains 
 ## 📂 Project Structure
 /AI-Fitness-Tracker │── app2.py # Main Flask application for real-time tracking │── emotion_model.h5 # Pre-trained deep learning model for face emotions │── voice_emotion_model.h5 # Pre-trained voice emotion recognition model │── voice_scaler.pkl # StandardScaler for normalizing voice features │── Face_train.ipynb # Jupyter Notebook for face emotion model training │── Voice_train.ipynb # Jupyter Notebook for voice emotion model training │── requirements.txt # Dependencies list for the project │── templates/ │ └── index.html # Web UI for Flask app (if applicable) │── static/ │ └── assets/ # CSS, JS, or media files (if applicable)
 
+### 1️⃣ Clone the Repository
+To get started, clone this repository using the following command:
+
+```bash
+git clone https://github.com/your-username/AI-Fitness-Tracker.git
+cd AI-Fitness-Tracker
+python3 -m venv venv
+source venv/bin/activate
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python app2.py
+http://localhost:5000/
 
