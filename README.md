@@ -2,6 +2,28 @@
 
 ## 📌 Overview
 The **AI Fitness Tracker** is a deep learning-powered system that detects **facial and vocal emotions** in real-time and recommends personalized workouts based on the user's emotional state. It integrates **computer vision, speech processing, and Flask-based web deployment**.
+## 📥 Download Datasets
+
+To train and run the **AI Fitness Tracker**, you need two main datasets:  
+one for **voice emotion recognition** and another for **facial emotion detection**.
+
+### 🔊 RAVDESS (Ryerson Audio-Visual Database of Emotional Speech and Song)
+The **RAVDESS dataset** contains speech and song recordings with emotional expressions.  
+📥 **Download Link**:  
+➡️ [RAVDESS Dataset - Zenodo](https://zenodo.org/record/1188976)  
+
+### 📸 Facial Emotion Recognition Dataset (FER 2013)
+For facial emotion recognition, we use the **FER 2013** dataset, which contains thousands of labeled facial expressions.  
+📥 **Download Links**:  
+➡️ [FER 2013 Dataset - Kaggle](https://www.kaggle.com/datasets/msambare/fer2013)  
+➡️ [FER 2013 Dataset - Papers with Code](https://paperswithcode.com/dataset/fer2013)  
+
+### 📌 How to Use These Datasets
+1. **Download the datasets** from the links above.  
+2. **Extract the files** and place them in the appropriate directories (`datasets/` or any preferred folder).  
+3. **Modify the dataset path** in `app2.py` or Jupyter notebooks (`Face_train.ipynb` and `Voice_train.ipynb`) to point to the correct location.  
+4. **Train the models** if needed before running the application.  
+
 
 ## 🚀 Features
 - **Facial Emotion Detection** using **MediaPipe** and a pre-trained CNN model.
