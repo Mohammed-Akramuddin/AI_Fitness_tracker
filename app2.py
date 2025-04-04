@@ -32,6 +32,17 @@ VOICE_EMOTIONS = {
 }
 FEATURE_LENGTH = 180
 
+# Global variables for models and state
+emotion_queue = queue.Queue()
+cap = cv2.VideoCapture(0)
+running = True
+voice_stream = None
+p = None
+emotion_log = []
+voice_model = None
+voice_emotions = None
+scaler = None
+
 # Load pre-trained face emotion model
 try:
     face_model = load_model("emotion_model.h5")
@@ -131,14 +142,6 @@ def train_voice_model(data_path):
     joblib.dump(scaler, "voice_scaler.pkl")
     return voice_model, unique_emotions, scaler
 
-# Global variables
-emotion_queue = queue.Queue()
-cap = cv2.VideoCapture(0)
-running = True
-voice_stream = None
-p = None
-emotion_log = []  # Store emotion data over time
-
 # Workout recommendations based on emotions
 def get_workout_recommendation(face_emotion, voice_emotion):
     if "Happy" in [face_emotion, voice_emotion] or "happy" in [face_emotion, voice_emotion]:
@@ -204,11 +207,15 @@ def continuous_voice_emotion(voice_model, emotions_list, scaler):
     print("Voice recording stopped.")
 
 # Video and emotion processing
-def generate_frames(voice_model, voice_emotions, scaler):
-    global running, emotion_log
-    voice_thread = threading.Thread(target=continuous_voice_emotion,
-                                    args=(voice_model, voice_emotions, scaler),
-                                    daemon=True)
+def generate_frames():
+    global running, emotion_log, voice_model, voice_emotions, scaler
+
+    # Start voice emotion thread
+    voice_thread = threading.Thread(
+        target=continuous_voice_emotion,
+        args=(voice_model, voice_emotions, scaler),
+        daemon=True
+    )
     voice_thread.start()
 
     face_emotion = "No face detected"
@@ -221,110 +228,228 @@ def generate_frames(voice_model, voice_emotions, scaler):
             print("Error: Could not read frame")
             break
 
-        # Face detection and emotion prediction
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        face_results = face_detection.process(rgb_frame)
-        if face_results.detections:
-            for detection in face_results.detections:
-                bboxC = detection.location_data.relative_bounding_box
-                h, w, _ = frame.shape
-                x_min = max(0, int(bboxC.xmin * w))
-                y_min = max(0, int(bboxC.ymin * h))
-                x_max = min(w, int((bboxC.xmin + bboxC.width) * w))
-                y_max = min(h, int((bboxC.ymin + bboxC.height) * h))
-
-                face = frame[y_min:y_max, x_min:x_max]
-                if face.shape[0] > 10 and face.shape[1] > 10:
-                    face_gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
-                    face_resized = cv2.resize(face_gray, (48, 48)) / 255.0
-                    face_input = np.reshape(face_resized, (1, 48, 48, 1))
-                    face_pred = face_model.predict(face_input, verbose=0)
-                    face_emotion = FACE_EMOTIONS[np.argmax(face_pred)]
-
-                    cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-                    cv2.putText(frame, f"Face: {face_emotion}", (x_min, y_min - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-
-        # Get latest voice emotion from queue
         try:
-            source, emotion = emotion_queue.get_nowait()
-            if source == "voice":
-                voice_emotion = emotion
-        except queue.Empty:
-            pass
+            # Face detection and emotion prediction
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            face_results = face_detection.process(rgb_frame)
 
-        # Log emotions every 10 seconds
-        current_time = time.time()
-        if current_time - last_log_time >= 10:
-            emotion_log.append({
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "face_emotion": face_emotion,
-                "voice_emotion": voice_emotion
-            })
-            with open("emotion_log.csv", "a", newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=["timestamp", "face_emotion", "voice_emotion"])
-                if os.stat("emotion_log.csv").st_size == 0:
-                    writer.writeheader()
-                writer.writerow(emotion_log[-1])
-            last_log_time = current_time
+            if face_results.detections:
+                for detection in face_results.detections:
+                    bbox = detection.location_data.relative_bounding_box
+                    h, w, _ = frame.shape
+                    x_min = max(0, int(bbox.xmin * w))
+                    y_min = max(0, int(bbox.ymin * h))
+                    x_max = min(w, int((bbox.xmin + bbox.width) * w))
+                    y_max = min(h, int((bbox.ymin + bbox.height) * h))
 
-        # Overlay emotions and workout recommendation
-        recommendation = get_workout_recommendation(face_emotion, voice_emotion)
-        cv2.putText(frame, f"Voice: {voice_emotion}", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
-        cv2.putText(frame, f"Workout: {recommendation}", (10, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+                    face = frame[y_min:y_max, x_min:x_max]
+                    if face.shape[0] > 10 and face.shape[1] > 10:
+                        face_gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+                        face_resized = cv2.resize(face_gray, (48, 48)) / 255.0
+                        face_input = np.reshape(face_resized, (1, 48, 48, 1))
+                        prediction = face_model.predict(face_input, verbose=0)
+                        face_emotion = FACE_EMOTIONS[np.argmax(prediction)]
 
-        # Encode frame as JPEG
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                        cv2.putText(frame, f"Face: {face_emotion}", (x_min, y_min - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
+            # Get latest voice emotion from queue
+            try:
+                source, emotion = emotion_queue.get_nowait()
+                if source == "voice":
+                    voice_emotion = emotion
+            except queue.Empty:
+                pass
+
+            # Log emotions every 10 seconds
+            current_time = time.time()
+            if current_time - last_log_time >= 10:
+                emotion_log.append({
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "face_emotion": face_emotion,
+                    "voice_emotion": voice_emotion
+                })
+                with open("emotion_log.csv", "a", newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=["timestamp", "face_emotion", "voice_emotion"])
+                    if os.stat("emotion_log.csv").st_size == 0:
+                        writer.writeheader()
+                    writer.writerow(emotion_log[-1])
+                last_log_time = current_time
+
+            # Get workout recommendation
+            recommendation = get_workout_recommendation(face_emotion, voice_emotion)
+
+            # Overlay info on frame
+            cv2.putText(frame, f"Voice: {voice_emotion}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+            cv2.putText(frame, f"Workout: {recommendation}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+
+            # Encode and yield frame
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                continue
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+
+        except Exception as e:
+            print(f"Frame processing error: {e}")
+            continue
+
+    # Clean up
     cap.release()
     print("Video feed stopped.")
 
-# Flask routes
+
 @app.route('/')
 def index():
-    return render_template_string('''
-        <html>
+    html_content = '''
+
+<!DOCTYPE html>
+<html>
         <head>
             <title>AI Fitness Tracker - Emotion Detection</title>
             <style>
-                body { font-family: Arial, sans-serif; text-align: center; }
-                h1 { color: #333; }
+                
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap');
+
+                h1 {
+                    font-family: 'Poppins', sans-serif;
+                    font-weight: 600;
+                    font-size: 36px;  /* Adjusted size */
+                    text-transform: uppercase;
+                    display: block;
+                    text-align: center;
+                    background: linear-gradient(90deg, #00d4ff, #a400ff);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+                    max-width: 100%;
+                    word-wrap: break-word;
+                    margin: 10px auto;
+                }
+
+                /* Responsive: Adjust font size on smaller screens */
+                @media (max-width: 768px) {
+                    h1 {
+                        font-size: 28px;  /* Smaller size for mobile */
+                    }
+                }
+
+
+                p{ 
+                    color: rgb(220, 220, 220); 
+                    font-family: Tahoma, Geneva, Verdana, sans-serif; 
+                    font-size: 20px;
+                    opacity: 0;
+                    transition: opacity 2s ease-in-out;
+                }
                 img { max-width: 100%; height: auto; }
                 button { padding: 10px 20px; margin: 10px; background-color: #ff4444; color: white; border: none; cursor: pointer; }
-                button:hover { background-color: #cc0000; }
-            </style>
+                button:hover { background-color: #cc0000; } 
+                
+                /* Updated Background Gradient */
+                .bg1 {
+                    background: linear-gradient(135deg, #3b1d60, #1c1c1c);
+                    height: 100vh; 
+                    background-size: cover; 
+                    padding: 25px;
+                }
+
+                .cd {
+                    background: rgba(255, 255, 255, 0.15); /* Semi-transparent white */
+                    backdrop-filter: blur(10px); /* Glassmorphism effect */
+                    padding: 15px;
+                    border-radius: 12px;
+                    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.2);
+                    animation: floatCard 3s infinite ease-in-out;
+                }
+
+                /* Floating Animation */
+                @keyframes floatCard {
+                    0% { transform: translateY(0px); }
+                    50% { transform: translateY(-10px); }
+                    100% { transform: translateY(0px); }
+                }
+
+                /* Responsive Tweaks */
+                @media (max-width: 768px) {
+                    .cd {
+                        padding: 10px;
+                    }
+                }
+
+            </style> 
+                <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous"/>
+                <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+                <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+                <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+                <script src="https://kit.fontawesome.com/fac54f0bd8.js" crossorigin="anonymous"></script>
         </head>
-        <body>
-            <h1>Fitness Tracker - Emotion Detection</h1>
-            <img src="{{ url_for('video_feed') }}" alt="Video Feed">
-            <br>
-            <form action="/shutdown" method="post">
-                <button type="submit">Stop Tracker</button>
-            </form>
+        <body> 
+            <div class="bg1"> 
+                <div class="container"> 
+                    <div class="row"> 
+                <div class="col-12">
+                    <h1 id="animatedText"></h1> 
+                    <p id="fadeText">For better Experience Try to place <span style="color:red;">Your face Straight</span></p> 
+                </div> 
+                <div class="col-12 cd shadow-lg mt-4">
+                    <div class="d-flex flex-row justify-content-center ">
+                        <img src="{{ url_for('video_feed') }}" alt="Video Feed"> 
+                    </div>
+                    
+                    <div class="text-center col-12 mt-5">
+                        <form action="/shutdown" method="post">    
+                            <button type="submit" class="btn btn-primary">Stop Tracker</button> 
+                        </form> 
+                    </div> 
+                </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                // Typing Animation Effect for Heading
+                const text = "Fitness Tracker - Emotion Detection";
+                let index = 0;
+                function typeEffect() {
+                    if (index < text.length) {
+                        document.getElementById("animatedText").innerHTML += text.charAt(index);
+                        index++;
+                        setTimeout(typeEffect, 100);
+                    } else {
+                        document.getElementById("animatedText").style.borderRight = "none"; // Remove cursor effect
+                        document.getElementById("fadeText").style.opacity = "1"; // Show paragraph
+                    }
+                }
+                window.onload = typeEffect;
+            </script>
         </body>
-        </html>
-    ''')
+</html>
+    '''
+    print("Rendering index page...")
+    return render_template_string(html_content)
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(voice_model, voice_emotions, scaler),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+    global voice_model, voice_emotions, scaler
+    if voice_model is None or voice_emotions is None or scaler is None:
+        return "Voice model not initialized. Please check server logs."
+    print("Starting video feed...")
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
     global running
     running = False
-    time.sleep(1)  # Give time for threads to stop
+    time.sleep(1)
     func = request.environ.get('werkzeug.server.shutdown')
     if func is None:
-        print("Server shutdown not supported in this environment.")
+        print("Server shutdown not supported.")
+        return "Server shutdown not supported."
     else:
         func()
+    print("Shutting down server...")
     return "Shutting down..."
 
 # Main execution
@@ -346,7 +471,7 @@ if __name__ == "__main__":
 
     # Start Flask app
     try:
-        app.run(host='0.0.0.0', port=5000, threaded=True)
+        app.run(host='0.0.0.0', port=5000, threaded=True, debug=True)
     except KeyboardInterrupt:
         running = False
         cap.release()
@@ -356,3 +481,5 @@ if __name__ == "__main__":
         if p:
             p.terminate()
         print("Application stopped via keyboard interrupt.")
+    except Exception as e:
+        print(f"Error running Flask app: {e}")
